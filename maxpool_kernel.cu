@@ -49,6 +49,18 @@ int main() {
     cout<<"Config GridDim = "<< N / WARPS_PER_BLOCK << ", BlockDim = " << WARPS_PER_BLOCK * 32 << ", shared_mem_size = " << shared_mem_size << endl;
 
     int times = 100;
+    for (int i = 0; i < 1; i++) {
+        maxpool <<< N / WARPS_PER_BLOCK, WARPS_PER_BLOCK * 32 >>> (data, value, indices);
+    }
+
+    for (int i = 0; i < dim_out; i += 1) {
+        cout << "value[" << i << "] = " << *(value + i) << endl;
+    }
+
+    for (int i = 0; i < dim_out; i += 1) {
+        cout << "indices[" << i << "] = " << *(indices + i) << endl;
+    }
+
     for (int i = 0; i < times; i++) {
         maxpool <<< N / WARPS_PER_BLOCK, WARPS_PER_BLOCK * 32 >>> (data, value, indices);
     }
@@ -66,13 +78,13 @@ int main() {
 
     cout << "max-pooling time = " << measured_time / times * 1000 << " ms" <<endl;
 
-    for (int i = 0; i < dim_out; i += 1) {
-        cout << "value[" << i << "] = " << *(value + i) << endl;
-    }
-
-    for (int i = 0; i < dim_out; i += 1) {
-        cout << "indices[" << i << "] = " << *(indices + i) << endl;
-    }
+//    for (int i = 0; i < dim_out; i += 1) {
+//        cout << "value[" << i << "] = " << *(value + i) << endl;
+//    }
+//
+//    for (int i = 0; i < dim_out; i += 1) {
+//        cout << "indices[" << i << "] = " << *(indices + i) << endl;
+//    }
 
     cudaFree(data);
     cudaFree(value);
@@ -118,6 +130,8 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
             v = data[vertex_offset + pos];
         }
 
+        data[vertex_offset + pos] = -1.0;
+
         value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i] = v;
         indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i] = pos;
     }
@@ -146,6 +160,8 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
             pos = (xx + 1) * sqrt_dim_in + yy + 1;
             v = data[vertex_offset + pos];
         }
+
+        data[vertex_offset + pos] = -1.0;
 
         value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i + 2] = v;
         indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i + 2] = pos;
