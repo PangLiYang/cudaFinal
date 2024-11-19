@@ -122,34 +122,34 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
         indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i] = pos;
     }
 
-//    yy = local_tid % 4 * 4;
-//
-//    #pragma unroll
-//    for (unsigned int i = 0; i < 2; i += 1) {
-//
-//        yy += 2 * i;
-//
-//        pos = xx * sqrt_dim_in + yy;
-//        v = data[vertex_offset + pos];
-//
-//        if (data[vertex_offset + (xx + 1) * sqrt_dim_in + yy] > v) {
-//            pos = (xx + 1) * sqrt_dim_in + yy;
-//            v = data[vertex_offset + pos];
-//        }
-//
-//        if (data[vertex_offset + xx * sqrt_dim_in + yy + 1] > v) {
-//            pos = xx * sqrt_dim_in + yy + 1;
-//            v = data[vertex_offset + pos];
-//        }
-//
-//        if (data[vertex_offset + (xx + 1) * sqrt_dim_in + yy + 1] > v) {
-//            pos = (xx + 1) * sqrt_dim_in + yy + 1;
-//            v = data[vertex_offset + pos];
-//        }
-//
-//        value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i + 2] = v;
-//        indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i + 2] = pos;
-//    }
+    yy = local_tid % 4 * 4;
+
+    #pragma unroll
+    for (unsigned int i = 0; i < 2; i += 1) {
+
+        yy += 2 * i;
+
+        pos = xx * sqrt_dim_in + yy;
+        v = data[vertex_offset + pos];
+
+        if (data[vertex_offset + (xx + 1) * sqrt_dim_in + yy] > v) {
+            pos = (xx + 1) * sqrt_dim_in + yy;
+            v = data[vertex_offset + pos];
+        }
+
+        if (data[vertex_offset + xx * sqrt_dim_in + yy + 1] > v) {
+            pos = xx * sqrt_dim_in + yy + 1;
+            v = data[vertex_offset + pos];
+        }
+
+        if (data[vertex_offset + (xx + 1) * sqrt_dim_in + yy + 1] > v) {
+            pos = (xx + 1) * sqrt_dim_in + yy + 1;
+            v = data[vertex_offset + pos];
+        }
+
+        value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i + 2] = v;
+        indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i + 2] = pos;
+    }
 //
 //    yy = local_tid % 4 * 4;
 //
