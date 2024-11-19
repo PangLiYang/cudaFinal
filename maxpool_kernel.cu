@@ -126,7 +126,7 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
             v = buffer[vertex_offset + pos];
         }
 
-        v = buffer[vertex_offset + pos] = -1.0;
+        buffer[vertex_offset + pos] = -1.0;
 
         value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 4 * local_tid + i] = v;
         indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 4 * local_tid + i] = pos;
