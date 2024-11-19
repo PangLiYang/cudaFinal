@@ -49,18 +49,6 @@ int main() {
     cout<<"Config GridDim = "<< N / WARPS_PER_BLOCK << ", BlockDim = " << WARPS_PER_BLOCK * 32 << ", shared_mem_size = " << shared_mem_size << endl;
 
     int times = 100;
-    for (int i = 0; i < 1; i++) {
-        maxpool <<< N / WARPS_PER_BLOCK, WARPS_PER_BLOCK * 32 >>> (data, value, indices);
-    }
-
-    for (int i = 0; i < dim_out; i += 1) {
-        cout << "value[" << i << "] = " << *(value + i) << endl;
-    }
-
-    for (int i = 0; i < dim_out; i += 1) {
-        cout << "indices[" << i << "] = " << *(indices + i) << endl;
-    }
-
     for (int i = 0; i < times; i++) {
         maxpool <<< N / WARPS_PER_BLOCK, WARPS_PER_BLOCK * 32 >>> (data, value, indices);
     }
