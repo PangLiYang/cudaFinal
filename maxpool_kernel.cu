@@ -17,7 +17,7 @@ const int WARPS_PER_BLOCK = 16;
 const int N = 232960 >> 8 << 8;
 //const int N = 16;
 
-const int dim_in = 256, dim_out = 128;
+const int dim_in = 64, dim_out = 32;
 
 __global__ void maxpool(float *, float *, unsigned int *);
 
@@ -46,7 +46,7 @@ int main() {
 
     cout<<"Config GridDim = "<< N / WARPS_PER_BLOCK << ", BlockDim = " << WARPS_PER_BLOCK * 32 << ", shared_mem_size = " << shared_mem_size << endl;
 
-    int times = 10;
+    int times = 100;
     for (int i = 0; i < times; i++) {
         maxpool <<< N / WARPS_PER_BLOCK, WARPS_PER_BLOCK * 32, shared_mem_size >>> (data, value, indices);
     }
@@ -85,6 +85,7 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
 
     const int warp_id = threadIdx.x / 32;
     const int local_tid = threadIdx.x % 32;
+    const int assigned_id = local_tid / 16;
     const int warp_offset = WARPS_PER_BLOCK * dim_in;
     const int feature_per_warp = dim_in / 32;
     const int vertex_offset = warp_id * dim_in;
@@ -97,67 +98,58 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
 
     __syncwarp();
 
-    int xx = local_tid / 4 * 2;
-    int yy = local_tid % 4 * 4;
+    if (assigned_id > 0) {
+        return;
+    }
+
+    int xx = local_tid / 4;
+    int yy = local_tid % 4 * 2;
 
     unsigned int pos;
     float v;
 
-    #pragma unroll
-    for (unsigned int i = 0; i < 2; i += 1) {
+    pos = xx * sqrt_dim_in + yy;
+    v = buffer[vertex_offset + pos];
 
-        yy += 2 * i;
-
-        pos = xx * sqrt_dim_in + yy;
+    if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy] > v) {
+        pos = (xx + 1) * sqrt_dim_in + yy;
         v = buffer[vertex_offset + pos];
-
-        if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy] > v) {
-            pos = (xx + 1) * sqrt_dim_in + yy;
-            v = buffer[vertex_offset + pos];
-        }
-
-        if (buffer[vertex_offset + xx * sqrt_dim_in + yy + 1] > v) {
-            pos = xx * sqrt_dim_in + yy + 1;
-            v = buffer[vertex_offset + pos];
-        }
-
-        if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy + 1] > v) {
-            pos = (xx + 1) * sqrt_dim_in + yy + 1;
-            v = buffer[vertex_offset + pos];
-        }
-
-        buffer[vertex_offset + pos] = -1.0;
-
-        value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 4 * local_tid + i] = v;
-        indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 4 * local_tid + i] = pos;
     }
 
-    yy = local_tid % 4 * 4;
-
-    #pragma unroll
-    for (unsigned int i = 0; i < 2; i += 1) {
-
-        yy += 2 * i;
-
-        pos = xx * sqrt_dim_in + yy;
+    if (buffer[vertex_offset + xx * sqrt_dim_in + yy + 1] > v) {
+        pos = xx * sqrt_dim_in + yy + 1;
         v = buffer[vertex_offset + pos];
-
-        if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy] > v) {
-            pos = (xx + 1) * sqrt_dim_in + yy;
-            v = buffer[vertex_offset + pos];
-        }
-
-        if (buffer[vertex_offset + xx * sqrt_dim_in + yy + 1] > v) {
-            pos = xx * sqrt_dim_in + yy + 1;
-            v = buffer[vertex_offset + pos];
-        }
-
-        if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy + 1] > v) {
-            pos = (xx + 1) * sqrt_dim_in + yy + 1;
-            v = buffer[vertex_offset + pos];
-        }
-
-        value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 4 * local_tid + i + 2] = v;
-        indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 4 * local_tid + i + 2] = pos;
     }
+
+    if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy + 1] > v) {
+        pos = (xx + 1) * sqrt_dim_in + yy + 1;
+        v = buffer[vertex_offset + pos];
+    }
+
+    buffer[vertex_offset + pos] = -1.0;
+
+    value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 2 * local_tid] = v;
+    indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 2 * local_tid] = pos;
+
+    // Phase2
+    pos = xx * sqrt_dim_in + yy;
+    v = buffer[vertex_offset + pos];
+
+    if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy] > v) {
+        pos = (xx + 1) * sqrt_dim_in + yy;
+        v = buffer[vertex_offset + pos];
+    }
+
+    if (buffer[vertex_offset + xx * sqrt_dim_in + yy + 1] > v) {
+        pos = xx * sqrt_dim_in + yy + 1;
+        v = buffer[vertex_offset + pos];
+    }
+
+    if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy + 1] > v) {
+        pos = (xx + 1) * sqrt_dim_in + yy + 1;
+        v = buffer[vertex_offset + pos];
+    }
+
+    value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 2 * local_tid + 1] = v;
+    indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 2 * local_tid + 1] = pos;
 }

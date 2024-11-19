@@ -17,7 +17,7 @@ const int WARPS_PER_BLOCK = 16;
 const int N = 232960 >> 8 << 8;
 //const int N = 4096;
 
-const int dim_in = 256, dim_out = 128;
+const int dim_in = 64, dim_out = 32;
 
 __global__ void topk(float *, float *, unsigned int *);
 
@@ -47,7 +47,7 @@ int main() {
     dim3 grid(N / WARPS_PER_BLOCK, 1, 1);
     dim3 block(WARPS_PER_BLOCK * 32, 1, 1);
 
-    int times = 10;
+    int times = 100;
     for (int i = 0; i < times; i++) {
         topk <<< grid, block, shared_mem_size >>> (data, value, indices);
     }
