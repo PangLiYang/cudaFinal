@@ -17,7 +17,7 @@ const int WARPS_PER_BLOCK = 16;
 const int N = 232960 >> 8 << 8;
 //const int N = 16;
 
-const int dim_in = 256, dim_out = 64;
+const int dim_in = 256, dim_out = 192;
 
 __global__ void maxpool(float *, float *, unsigned int *);
 
@@ -46,7 +46,7 @@ int main() {
 
     cout<<"Config GridDim = "<< N / WARPS_PER_BLOCK << ", BlockDim = " << WARPS_PER_BLOCK * 32 << ", shared_mem_size = " << shared_mem_size << endl;
 
-    int times = 10;
+    int times = 100;
     for (int i = 0; i < times; i++) {
         maxpool <<< N / WARPS_PER_BLOCK, WARPS_PER_BLOCK * 32, shared_mem_size >>> (data, value, indices);
     }
@@ -64,11 +64,11 @@ int main() {
 
     cout << "max-pooling time = " << measured_time / times * 1000 << " ms" <<endl;
 
-    for (int i = 0; i < 64; i += 1) {
+    for (int i = 0; i < 192; i += 1) {
         cout << "value[" << i << "] = " << *(value + i) << endl;
     }
 
-    for (int i = 0; i < 64; i += 1) {
+    for (int i = 0; i < 192; i += 1) {
         cout << "indices[" << i << "] = " << *(indices + i) << endl;
     }
 
@@ -126,11 +126,69 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
             v = buffer[vertex_offset + pos];
         }
 
-        value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 2 * local_tid + i] = v;
-        indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 2 * local_tid + i] = pos;
+        buffer[vertex_offset + pos] = -1.0;
+
+        value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i] = v;
+        indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i] = pos;
+    }
+
+    yy = local_tid % 4 * 4;
+
+    #pragma unroll
+    for (unsigned int i = 0; i < 2; i += 1) {
+
+        yy += 2 * i;
+
+        pos = xx * sqrt_dim_in + yy;
+        v = buffer[vertex_offset + pos];
+
+        if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy] > v) {
+            pos = (xx + 1) * sqrt_dim_in + yy;
+            v = buffer[vertex_offset + pos];
+        }
+
+        if (buffer[vertex_offset + xx * sqrt_dim_in + yy + 1] > v) {
+            pos = xx * sqrt_dim_in + yy + 1;
+            v = buffer[vertex_offset + pos];
+        }
+
+        if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy + 1] > v) {
+            pos = (xx + 1) * sqrt_dim_in + yy + 1;
+            v = buffer[vertex_offset + pos];
+        }
+
+        buffer[vertex_offset + pos] = -1.0;
+
+        value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i + 2] = v;
+        indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i + 2] = pos;
+    }
+
+    yy = local_tid % 4 * 4;
+
+    #pragma unroll
+    for (unsigned int i = 0; i < 2; i += 1) {
+
+        yy += 2 * i;
+
+        pos = xx * sqrt_dim_in + yy;
+        v = buffer[vertex_offset + pos];
+
+        if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy] > v) {
+            pos = (xx + 1) * sqrt_dim_in + yy;
+            v = buffer[vertex_offset + pos];
+        }
+
+        if (buffer[vertex_offset + xx * sqrt_dim_in + yy + 1] > v) {
+            pos = xx * sqrt_dim_in + yy + 1;
+            v = buffer[vertex_offset + pos];
+        }
+
+        if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy + 1] > v) {
+            pos = (xx + 1) * sqrt_dim_in + yy + 1;
+            v = buffer[vertex_offset + pos];
+        }
+
+        value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i + 4] = v;
+        indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i + 4] = pos;
     }
 }
-
-//https://drive.google.com/file/d/1ddia8TomUJWrpf9nUTzHEPinab0OsiQr/view?usp=drive_link
-
-//wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1ddia8TomUJWrpf9nUTzHEPinab0OsiQr' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1ddia8TomUJWrpf9nUTzHEPinab0OsiQr" -O graphs.zip && rm -rf /tmp/cookies.txt
