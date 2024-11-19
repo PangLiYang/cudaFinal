@@ -130,7 +130,7 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
         indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 4 * local_tid + i] = pos;
     }
 
-    int yy = local_tid % 4 * 4;
+    yy = local_tid % 4 * 4;
 
     #pragma unroll
     for (unsigned int i = 0; i < 2; i += 1) {
