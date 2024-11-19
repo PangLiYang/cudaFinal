@@ -13,9 +13,9 @@ inline double getDuration(std::chrono::time_point<std::chrono::system_clock> a,
 
 using namespace std;
 
-const int WARPS_PER_BLOCK = 16;
+const int THREADS_PER_BLOCK = 32;
 const int N = 232960 >> 8 << 8;
-//const int N = 16;
+//const int N = 4096;
 
 const int dim_in = 256, dim_out = 64;
 
@@ -23,8 +23,7 @@ __global__ void maxpool(float *, float *, unsigned int *);
 
 int main() {
 
-    cout << "Max Pooling kernel" << endl;
-    cout << "N = "<< N << ", dim_in = " << dim_in << ", dim_out = " << dim_out << ", preparing data..." << endl;
+    cout<<"N = "<< N << ", dim_in = " << dim_in << ", dim_out = " << dim_out << ", preparing data..." << endl;
 
     float *data, *value;
     unsigned int *indices;
@@ -40,15 +39,16 @@ int main() {
 
     generate(data, data + N * dim_in, [&](){ return rd(engine); });
 
-    cout << "data ready, testing..." << endl;
+    unsigned int shared_mem_size = THREADS_PER_BLOCK * dim_in * sizeof(float);
 
-    unsigned int shared_mem_size = WARPS_PER_BLOCK * dim_in * sizeof(float);
+    cout<<"Config GridDim = "<< N / THREADS_PER_BLOCK << ", BlockDim = " << THREADS_PER_BLOCK << ", shared_mem_size = " << shared_mem_size << endl;
 
-    cout<<"Config GridDim = "<< N / WARPS_PER_BLOCK << ", BlockDim = " << WARPS_PER_BLOCK * 32 << ", shared_mem_size = " << shared_mem_size << endl;
+    dim3 grid(N / THREADS_PER_BLOCK, 1, 1);
+    dim3 block(THREADS_PER_BLOCK, 1, 1);
 
     int times = 10;
     for (int i = 0; i < times; i++) {
-        maxpool <<< N / WARPS_PER_BLOCK, WARPS_PER_BLOCK * 32, shared_mem_size >>> (data, value, indices);
+        maxpool <<< grid, block, shared_mem_size >>> (data, value, indices);
     }
 
     cudaDeviceSynchronize();
@@ -56,7 +56,7 @@ int main() {
 
     for (int i = 0; i < times; i++) {
         timestamp(t0);
-        maxpool <<< N / WARPS_PER_BLOCK, WARPS_PER_BLOCK * 32, shared_mem_size >>> (data, value, indices);
+        maxpool <<< grid, block, shared_mem_size >>> (data, value, indices);
         cudaDeviceSynchronize();
         timestamp(t1);
         measured_time += getDuration(t0, t1);
@@ -64,12 +64,14 @@ int main() {
 
     cout << "max-pooling time = " << measured_time / times * 1000 << " ms" <<endl;
 
+    cudaDeviceSynchronize();
+
     for (int i = 0; i < 64; i += 1) {
-        cout << "value[" << i << "] = " << *(value + i) << endl;
+        cout << "value[" << i << "] = " << value[i] << endl;
     }
 
     for (int i = 0; i < 64; i += 1) {
-        cout << "indices[" << i << "] = " << *(indices + i) << endl;
+        cout << "indices[" << i << "] = " << indices[i] << endl;
     }
 
     cudaFree(data);
@@ -83,54 +85,49 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
 
     extern __shared__ float buffer[];
 
-    const int warp_id = threadIdx.x / 32;
-    const int local_tid = threadIdx.x % 32;
-    const int warp_offset = WARPS_PER_BLOCK * dim_in;
-    const int feature_per_warp = dim_in / 32;
-    const int vertex_offset = warp_id * dim_in;
     const int sqrt_dim_in = 16;
+    const int thread_offset = threadIdx.x * dim_in;
+    const int block_offset = blockIdx.x * THREADS_PER_BLOCK * dim_in;
 
-    #pragma unroll
-    for (unsigned int i = 0; i < feature_per_warp; i += 1) {
-        buffer[warp_id * dim_in + feature_per_warp * local_tid + i] = data[blockIdx.x * warp_offset + warp_id * dim_in + feature_per_warp * local_tid + i];
+#pragma unroll
+    for (unsigned int i = 0; i < dim_in; i += 1) {
+        buffer[thread_offset + i] = data[block_offset + thread_offset + i];
     }
 
-    __syncwarp();
+    //__syncwarp();
 
-    int xx = local_tid / 4 * 2;
-    int yy = local_tid % 4 * 4;
-
-    unsigned int pos;
     float v;
+    int pos;
+    int offset = 0;
 
-    #pragma unroll
-    for (unsigned int i = 0; i < 2; i += 1) {
+#pragma unroll
+    for (int xx = 0; xx < sqrt_dim_in; xx += 2) {
 
-        yy += 2 * i;
+        for (int yy = 0; yy < sqrt_dim_in; yy += 2) {
 
-        pos = xx * sqrt_dim_in + yy;
-        v = buffer[vertex_offset + pos];
+            pos = xx * sqrt_dim_in + yy;
+            v = buffer[thread_offset + pos];
 
-        if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy] > v) {
-            pos = (xx + 1) * sqrt_dim_in + yy;
-            v = buffer[vertex_offset + pos];
+            if (buffer[thread_offset + xx * sqrt_dim_in + yy + 1] > v) {
+                pos = xx * sqrt_dim_in + yy + 1;
+                v = buffer[thread_offset + pos];
+            }
+
+            if (buffer[thread_offset + (xx + 1) * sqrt_dim_in + yy] > v) {
+                pos = (xx + 1) * sqrt_dim_in + yy;
+                v = buffer[thread_offset + pos];
+            }
+
+            if (buffer[thread_offset + (xx + 1) * sqrt_dim_in + yy + 1] > v) {
+                pos = (xx + 1) * sqrt_dim_in + yy + 1;
+                v = buffer[thread_offset + pos];
+            }
+
+            value[blockIdx.x * THREADS_PER_BLOCK * dim_out + threadIdx.x * dim_out + offset] = v;
+            indices[blockIdx.x * THREADS_PER_BLOCK * dim_out + threadIdx.x * dim_out + offset] = pos;
+
+            offset += 1;
+
         }
-
-        if (buffer[vertex_offset + xx * sqrt_dim_in + yy + 1] > v) {
-            pos = xx * sqrt_dim_in + yy + 1;
-            v = buffer[vertex_offset + pos];
-        }
-
-        if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy + 1] > v) {
-            pos = (xx + 1) * sqrt_dim_in + yy + 1;
-            v = buffer[vertex_offset + pos];
-        }
-
-        value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 2 * local_tid + i] = v;
-        indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 2 * local_tid + i] = pos;
     }
 }
-
-//https://drive.google.com/file/d/1ddia8TomUJWrpf9nUTzHEPinab0OsiQr/view?usp=drive_link
-
-//wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1ddia8TomUJWrpf9nUTzHEPinab0OsiQr' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1ddia8TomUJWrpf9nUTzHEPinab0OsiQr" -O graphs.zip && rm -rf /tmp/cookies.txt
