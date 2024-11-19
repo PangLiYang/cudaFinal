@@ -85,11 +85,10 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
 
     const int warp_id = threadIdx.x / 32;
     const int local_tid = threadIdx.x % 32;
-    const int assigned_id = local_tid / 16;
     const int warp_offset = WARPS_PER_BLOCK * dim_in;
     const int feature_per_warp = dim_in / 32;
     const int vertex_offset = warp_id * dim_in;
-    const int sqrt_dim_in = 16;
+    const int sqrt_dim_in = 8;
 
     #pragma unroll
     for (unsigned int i = 0; i < feature_per_warp; i += 1) {
@@ -98,7 +97,7 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
 
     __syncwarp();
 
-    if (assigned_id > 0) {
+    if (local_tid >= 16) {
         return;
     }
 
