@@ -48,7 +48,7 @@ int main() {
     dim3 grid(N / THREADS_PER_BLOCK, 1, 1);
     dim3 block(THREADS_PER_BLOCK, 1, 1);
 
-    int times = 10;
+    int times = 100;
     for (int i = 0; i < times; i++) {
         maxpool <<< grid, block, shared_mem_size >>> (data, value, indices);
     }
