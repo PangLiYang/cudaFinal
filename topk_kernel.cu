@@ -17,7 +17,7 @@ const int WARPS_PER_BLOCK = 16;
 const int N = 232960 >> 8 << 8;
 //const int N = 4096;
 
-const int dim_in = 256, dim_out = 64;
+const int dim_in = 256, dim_out = 128;
 
 __global__ void topk(float *, float *, unsigned int *);
 
