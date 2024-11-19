@@ -14,7 +14,9 @@ inline double getDuration(std::chrono::time_point<std::chrono::system_clock> a,
 using namespace std;
 
 const int THREADS_PER_BLOCK = 32;
-const int N = 232960 >> 8 << 8;
+//const int N = 232960 >> 8 << 8;
+const int N = 716847 >> 8 << 8;
+//const int N = 2449029 >> 8 << 8;
 //const int N = 4096;
 
 const int dim_in = 256, dim_out = 64;
