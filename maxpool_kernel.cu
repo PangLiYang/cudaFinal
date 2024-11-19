@@ -112,17 +112,17 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
         pos = xx * sqrt_dim_in + yy;
         v = data[vertex_offset + pos];
 
-        if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy] > v) {
+        if (data[vertex_offset + (xx + 1) * sqrt_dim_in + yy] > v) {
             pos = (xx + 1) * sqrt_dim_in + yy;
             v = data[vertex_offset + pos];
         }
 
-        if (buffer[vertex_offset + xx * sqrt_dim_in + yy + 1] > v) {
+        if (data[vertex_offset + xx * sqrt_dim_in + yy + 1] > v) {
             pos = xx * sqrt_dim_in + yy + 1;
             v = data[vertex_offset + pos];
         }
 
-        if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy + 1] > v) {
+        if (data[vertex_offset + (xx + 1) * sqrt_dim_in + yy + 1] > v) {
             pos = (xx + 1) * sqrt_dim_in + yy + 1;
             v = data[vertex_offset + pos];
         }
