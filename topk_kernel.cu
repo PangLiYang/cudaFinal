@@ -17,7 +17,7 @@ const int WARPS_PER_BLOCK = 16;
 const int N = 232960 >> 8 << 8;
 //const int N = 4096;
 
-const int dim_in = 256, dim_out = 64;
+const int dim_in = 256, dim_out = 192;
 
 __global__ void topk(float *, float *, unsigned int *);
 
@@ -65,11 +65,11 @@ int main() {
 
     cout << "top-k time = " << measured_time / times * 1000 << " ms" <<endl;
 
-    for (int i = 0; i < 64; i += 1) {
+    for (int i = 0; i < dim_out; i += 1) {
         cout << "value[" << i << "] = " << *(value + i) << endl;
     }
 
-    for (int i = 0; i < 64; i += 1) {
+    for (int i = 0; i < dim_out; i += 1) {
         cout << "indices[" << i << "] = " << *(indices + i) << endl;
     }
 
