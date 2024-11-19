@@ -50,7 +50,7 @@ int main() {
 
     int times = 100;
     for (int i = 0; i < times; i++) {
-        maxpool <<< N / WARPS_PER_BLOCK, WARPS_PER_BLOCK * 32, shared_mem_size >>> (data, value, indices);
+        maxpool <<< N / WARPS_PER_BLOCK, WARPS_PER_BLOCK * 32 >>> (data, value, indices);
     }
 
     cudaDeviceSynchronize();
@@ -58,7 +58,7 @@ int main() {
 
     for (int i = 0; i < times; i++) {
         timestamp(t0);
-        maxpool <<< N / WARPS_PER_BLOCK, WARPS_PER_BLOCK * 32, shared_mem_size >>> (data, value, indices);
+        maxpool <<< N / WARPS_PER_BLOCK, WARPS_PER_BLOCK * 32 >>> (data, value, indices);
         cudaDeviceSynchronize();
         timestamp(t1);
         measured_time += getDuration(t0, t1);
@@ -83,21 +83,20 @@ int main() {
 
 __global__ void maxpool(float *data, float *value, unsigned int *indices) {
 
-    extern __shared__ float buffer[];
-
     const int warp_id = threadIdx.x / 32;
     const int local_tid = threadIdx.x % 32;
     const int warp_offset = WARPS_PER_BLOCK * dim_in;
     const int feature_per_warp = dim_in / 32;
-    const int vertex_offset = warp_id * dim_in;
+//    const int vertex_offset = warp_id * dim_in;
+    const int vertex_offset = blockIdx.x * warp_offset + warp_id * dim_in;
     const int sqrt_dim_in = 16;
 
-    #pragma unroll
-    for (unsigned int i = 0; i < feature_per_warp; i += 1) {
-        buffer[warp_id * dim_in + feature_per_warp * local_tid + i] = data[blockIdx.x * warp_offset + warp_id * dim_in + feature_per_warp * local_tid + i];
-    }
-
-    __syncwarp();
+//    #pragma unroll
+//    for (unsigned int i = 0; i < feature_per_warp; i += 1) {
+//        buffer[warp_id * dim_in + feature_per_warp * local_tid + i] = data[blockIdx.x * warp_offset + warp_id * dim_in + feature_per_warp * local_tid + i];
+//    }
+//
+//    __syncwarp();
 
     int xx = local_tid / 4 * 2;
     int yy = local_tid % 4 * 4;
@@ -111,28 +110,24 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
         yy += 2 * i;
 
         pos = xx * sqrt_dim_in + yy;
-        v = buffer[vertex_offset + pos];
+        v = data[vertex_offset + pos];
 
         if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy] > v) {
             pos = (xx + 1) * sqrt_dim_in + yy;
-            v = buffer[vertex_offset + pos];
+            v = data[vertex_offset + pos];
         }
 
         if (buffer[vertex_offset + xx * sqrt_dim_in + yy + 1] > v) {
             pos = xx * sqrt_dim_in + yy + 1;
-            v = buffer[vertex_offset + pos];
+            v = data[vertex_offset + pos];
         }
 
         if (buffer[vertex_offset + (xx + 1) * sqrt_dim_in + yy + 1] > v) {
             pos = (xx + 1) * sqrt_dim_in + yy + 1;
-            v = buffer[vertex_offset + pos];
+            v = data[vertex_offset + pos];
         }
 
         value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 2 * local_tid + i] = v;
         indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 2 * local_tid + i] = pos;
     }
 }
-
-//https://drive.google.com/file/d/1ddia8TomUJWrpf9nUTzHEPinab0OsiQr/view?usp=drive_link
-
-//wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1ddia8TomUJWrpf9nUTzHEPinab0OsiQr' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1ddia8TomUJWrpf9nUTzHEPinab0OsiQr" -O graphs.zip && rm -rf /tmp/cookies.txt
