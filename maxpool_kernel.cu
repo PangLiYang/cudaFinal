@@ -19,7 +19,7 @@ const int N = 232960 >> 8 << 8;
 //const int N = 2449029 >> 8 << 8;
 //const int N = 16;
 
-const int dim_in = 256, dim_out = 64;
+const int dim_in = 128, dim_out = 64;
 
 __global__ void maxpool(float *, float *, unsigned int *);
 
