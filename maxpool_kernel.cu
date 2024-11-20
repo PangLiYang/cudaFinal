@@ -66,14 +66,6 @@ int main() {
 
     cout << "max-pooling time = " << measured_time / times * 1000 << " ms" <<endl;
 
-//    for (int i = 0; i < dim_out; i += 1) {
-//        cout << "value[" << i << "] = " << *(value + i) << endl;
-//    }
-//
-//    for (int i = 0; i < dim_out; i += 1) {
-//        cout << "indices[" << i << "] = " << *(indices + i) << endl;
-//    }
-
     cudaFree(data);
     cudaFree(value);
     cudaFree(indices);
