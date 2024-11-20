@@ -5,6 +5,7 @@ EXEC1 = maxpool
 EXEC2 = topk
 
 SRC1 = maxpool_kernel.cu
+#SRC1 = maxpool_noShared.cu
 SRC2 = topk_kernel.cu
 
 all: $(EXEC1) $(EXEC2)
