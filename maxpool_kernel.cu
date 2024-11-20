@@ -132,7 +132,3 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
         indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 2 * local_tid + i] = pos;
     }
 }
-
-//https://drive.google.com/file/d/1ddia8TomUJWrpf9nUTzHEPinab0OsiQr/view?usp=drive_link
-
-//wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1ddia8TomUJWrpf9nUTzHEPinab0OsiQr' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1ddia8TomUJWrpf9nUTzHEPinab0OsiQr" -O graphs.zip && rm -rf /tmp/cookies.txt
