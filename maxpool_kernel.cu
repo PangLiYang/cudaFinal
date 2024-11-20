@@ -112,8 +112,8 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
 
         data[vertex_offset + pos] = -1.0;
 
-        value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i] = v;
-        indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i] = pos;
+        value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 4 * local_tid + i] = v;
+        indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 4 * local_tid + i] = pos;
     }
 
     yy = local_tid % 4 * 4;
@@ -141,7 +141,7 @@ __global__ void maxpool(float *data, float *value, unsigned int *indices) {
             v = data[vertex_offset + pos];
         }
 
-        value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i + 2] = v;
-        indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 6 * local_tid + i + 2] = pos;
+        value[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 4 * local_tid + i + 2] = v;
+        indices[blockIdx.x * WARPS_PER_BLOCK * dim_out + warp_id * dim_out + 4 * local_tid + i + 2] = pos;
     }
 }
